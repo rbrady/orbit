@@ -1,0 +1,976 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>orbit — secret rotation CLI</title>
+  <style>
+    :root {
+      --bg:           #0d1117;
+      --bg-surface:   #161b22;
+      --bg-code:      #1c2128;
+      --border:       #30363d;
+      --text:         #e6edf3;
+      --text-muted:   #8b949e;
+      --accent:       #2dd4bf;
+      --accent-dim:   #0d9488;
+      --green:        #3fb950;
+      --orange:       #f0883e;
+      --red:          #f85149;
+      --purple:       #bc8cff;
+      --font-mono:    ui-monospace, "Cascadia Code", "Fira Code", Menlo, monospace;
+      --font-sans:    -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+    }
+
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    html { scroll-behavior: smooth; }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: var(--font-sans);
+      font-size: 16px;
+      line-height: 1.6;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    a { color: var(--accent); text-decoration: none; }
+    a:hover { text-decoration: underline; }
+
+    /* ── Nav ── */
+    nav {
+      position: sticky;
+      top: 0;
+      z-index: 100;
+      background: rgba(13,17,23,0.85);
+      backdrop-filter: blur(12px);
+      border-bottom: 1px solid var(--border);
+      padding: 0 2rem;
+      height: 56px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .nav-logo {
+      font-family: var(--font-mono);
+      font-size: 1.1rem;
+      font-weight: 600;
+      color: var(--text);
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+
+    .nav-logo .dot {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      border: 2px solid var(--accent);
+      display: inline-block;
+      position: relative;
+    }
+
+    .nav-logo .dot::after {
+      content: '';
+      position: absolute;
+      top: -5px; left: -5px; right: -5px; bottom: -5px;
+      border-radius: 50%;
+      border: 1px solid rgba(45, 212, 191, 0.25);
+    }
+
+    .nav-links { display: flex; gap: 1.5rem; align-items: center; }
+    .nav-links a { color: var(--text-muted); font-size: 0.9rem; }
+    .nav-links a:hover { color: var(--text); text-decoration: none; }
+
+    .btn-outline {
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 0.35rem 0.85rem;
+      font-size: 0.85rem;
+      color: var(--text);
+      background: transparent;
+      cursor: pointer;
+      transition: border-color 0.15s, background 0.15s;
+    }
+    .btn-outline:hover { border-color: var(--accent); background: rgba(45,212,191,0.06); text-decoration: none; }
+
+    /* ── Sections ── */
+    section { padding: 5rem 2rem; }
+    .container { max-width: 960px; margin: 0 auto; }
+    .container-wide { max-width: 1100px; margin: 0 auto; }
+
+    /* ── Hero ── */
+    #hero {
+      padding: 7rem 2rem 5rem;
+      text-align: center;
+      position: relative;
+      overflow: hidden;
+    }
+
+    #hero::before {
+      content: '';
+      position: absolute;
+      top: -200px; left: 50%; transform: translateX(-50%);
+      width: 800px; height: 600px;
+      background: radial-gradient(ellipse at center, rgba(45,212,191,0.07) 0%, transparent 70%);
+      pointer-events: none;
+    }
+
+    .hero-badge {
+      display: inline-block;
+      font-family: var(--font-mono);
+      font-size: 0.75rem;
+      color: var(--accent);
+      background: rgba(45,212,191,0.1);
+      border: 1px solid rgba(45,212,191,0.25);
+      border-radius: 999px;
+      padding: 0.25rem 0.85rem;
+      margin-bottom: 1.5rem;
+      letter-spacing: 0.05em;
+    }
+
+    .hero-title {
+      font-family: var(--font-mono);
+      font-size: clamp(3.5rem, 8vw, 6rem);
+      font-weight: 700;
+      letter-spacing: -0.02em;
+      color: var(--text);
+      line-height: 1;
+      margin-bottom: 1.25rem;
+    }
+
+    .hero-title span { color: var(--accent); }
+
+    .hero-tagline {
+      font-size: clamp(1.1rem, 2.5vw, 1.4rem);
+      color: var(--text-muted);
+      max-width: 560px;
+      margin: 0 auto 2.5rem;
+      line-height: 1.5;
+    }
+
+    .hero-actions {
+      display: flex;
+      gap: 1rem;
+      justify-content: center;
+      flex-wrap: wrap;
+      margin-bottom: 3rem;
+    }
+
+    .btn-primary {
+      background: var(--accent);
+      color: #0d1117;
+      font-weight: 600;
+      font-size: 0.95rem;
+      padding: 0.6rem 1.4rem;
+      border-radius: 6px;
+      border: none;
+      cursor: pointer;
+      transition: background 0.15s;
+    }
+    .btn-primary:hover { background: #5eead4; text-decoration: none; color: #0d1117; }
+
+    .btn-secondary {
+      border: 1px solid var(--border);
+      color: var(--text);
+      font-size: 0.95rem;
+      padding: 0.6rem 1.4rem;
+      border-radius: 6px;
+      background: transparent;
+      cursor: pointer;
+      transition: border-color 0.15s, background 0.15s;
+    }
+    .btn-secondary:hover { border-color: var(--text-muted); background: rgba(255,255,255,0.04); text-decoration: none; }
+
+    .install-box {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.75rem;
+      background: var(--bg-surface);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 0.6rem 1rem;
+      font-family: var(--font-mono);
+      font-size: 0.9rem;
+      color: var(--text-muted);
+      cursor: pointer;
+      transition: border-color 0.15s;
+    }
+    .install-box:hover { border-color: var(--accent); text-decoration: none; }
+    .install-box .prompt { color: var(--accent); user-select: none; }
+    .install-box .cmd { color: var(--text); }
+    .install-box .copy-icon { color: var(--text-muted); font-size: 0.8rem; margin-left: 0.5rem; }
+
+    /* ── Problem ── */
+    #problem {
+      background: var(--bg-surface);
+      border-top: 1px solid var(--border);
+      border-bottom: 1px solid var(--border);
+      padding: 4rem 2rem;
+    }
+
+    .problem-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+      gap: 2rem;
+      margin-top: 2.5rem;
+    }
+
+    .problem-card {
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 1.5rem;
+    }
+
+    .problem-card .icon {
+      font-size: 1.5rem;
+      margin-bottom: 0.75rem;
+    }
+
+    .problem-card h3 { font-size: 0.95rem; margin-bottom: 0.5rem; color: var(--text); }
+    .problem-card p  { font-size: 0.875rem; color: var(--text-muted); line-height: 1.6; }
+
+    /* ── How it works ── */
+    .section-label {
+      font-family: var(--font-mono);
+      font-size: 0.75rem;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: var(--accent);
+      margin-bottom: 0.75rem;
+    }
+
+    .section-title {
+      font-size: clamp(1.4rem, 3vw, 2rem);
+      font-weight: 700;
+      margin-bottom: 1rem;
+      letter-spacing: -0.02em;
+    }
+
+    .section-sub {
+      color: var(--text-muted);
+      font-size: 1rem;
+      max-width: 540px;
+      margin-bottom: 3rem;
+    }
+
+    .steps {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+      gap: 0;
+      position: relative;
+    }
+
+    .steps::before {
+      content: '';
+      position: absolute;
+      top: 28px; left: calc(16.67% + 1rem); right: calc(16.67% + 1rem);
+      height: 1px;
+      background: linear-gradient(to right, var(--border), var(--accent-dim), var(--border));
+    }
+
+    .step {
+      padding: 1.5rem;
+      position: relative;
+      z-index: 1;
+    }
+
+    .step-number {
+      width: 56px; height: 56px;
+      border-radius: 50%;
+      border: 2px solid var(--border);
+      background: var(--bg);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-family: var(--font-mono);
+      font-size: 1.1rem;
+      font-weight: 700;
+      color: var(--accent);
+      margin-bottom: 1.25rem;
+    }
+
+    .step h3 { font-size: 1rem; font-weight: 600; margin-bottom: 0.5rem; }
+    .step p  { font-size: 0.875rem; color: var(--text-muted); line-height: 1.6; }
+    .step code {
+      font-family: var(--font-mono);
+      font-size: 0.82rem;
+      background: var(--bg-code);
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      padding: 0.1rem 0.4rem;
+      color: var(--accent);
+    }
+
+    /* ── Terminal ── */
+    #demo { background: var(--bg-surface); border-top: 1px solid var(--border); border-bottom: 1px solid var(--border); }
+
+    .terminal-wrap {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 1.5rem;
+      align-items: start;
+    }
+
+    @media (max-width: 720px) {
+      .terminal-wrap { grid-template-columns: 1fr; }
+      .steps::before { display: none; }
+    }
+
+    .terminal {
+      background: #010409;
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      overflow: hidden;
+      font-family: var(--font-mono);
+      font-size: 0.82rem;
+      line-height: 1.7;
+    }
+
+    .terminal-bar {
+      background: #1c2128;
+      border-bottom: 1px solid var(--border);
+      padding: 0.6rem 1rem;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+
+    .terminal-dot { width: 12px; height: 12px; border-radius: 50%; }
+    .terminal-dot.r { background: #ff5f57; }
+    .terminal-dot.y { background: #febc2e; }
+    .terminal-dot.g { background: #28c840; }
+    .terminal-title { color: var(--text-muted); font-size: 0.78rem; margin-left: auto; margin-right: auto; }
+
+    .terminal-body { padding: 1.25rem 1.25rem; }
+
+    .t-prompt  { color: var(--accent); }
+    .t-cmd     { color: var(--text); }
+    .t-flag    { color: var(--purple); }
+    .t-path    { color: var(--orange); }
+    .t-ok      { color: var(--green); }
+    .t-warn    { color: var(--orange); }
+    .t-muted   { color: var(--text-muted); }
+    .t-dim     { color: #444d56; }
+    .t-blank   { display: block; height: 0.6rem; }
+
+    /* ── Config ── */
+    .config-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 3rem;
+      align-items: start;
+    }
+
+    @media (max-width: 720px) { .config-grid { grid-template-columns: 1fr; } }
+
+    .code-block {
+      background: var(--bg-code);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      overflow: hidden;
+    }
+
+    .code-block-header {
+      background: var(--bg-surface);
+      border-bottom: 1px solid var(--border);
+      padding: 0.6rem 1rem;
+      font-family: var(--font-mono);
+      font-size: 0.78rem;
+      color: var(--text-muted);
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+
+    .code-block-header .file-icon { color: var(--orange); }
+
+    .code-block pre {
+      padding: 1.25rem;
+      font-family: var(--font-mono);
+      font-size: 0.82rem;
+      line-height: 1.7;
+      overflow-x: auto;
+      margin: 0;
+    }
+
+    .j-key    { color: #79c0ff; }
+    .j-str    { color: #a5d6ff; }
+    .j-num    { color: #f0883e; }
+    .j-punct  { color: var(--text-muted); }
+
+    .config-notes { }
+    .config-notes h3 { font-size: 1.1rem; margin-bottom: 0.5rem; }
+    .config-notes p  { font-size: 0.9rem; color: var(--text-muted); margin-bottom: 1.25rem; line-height: 1.7; }
+    .config-notes ul { list-style: none; display: flex; flex-direction: column; gap: 0.75rem; }
+    .config-notes li {
+      font-size: 0.875rem;
+      color: var(--text-muted);
+      padding-left: 1.25rem;
+      position: relative;
+      line-height: 1.6;
+    }
+    .config-notes li::before { content: '→'; position: absolute; left: 0; color: var(--accent); }
+    .config-notes li strong { color: var(--text); }
+
+    /* ── Commands ── */
+    .commands-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+      gap: 1rem;
+      margin-top: 2.5rem;
+    }
+
+    .command-card {
+      background: var(--bg-surface);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 1.25rem;
+      transition: border-color 0.15s;
+    }
+    .command-card:hover { border-color: rgba(45,212,191,0.4); }
+
+    .command-card .cmd-line {
+      font-family: var(--font-mono);
+      font-size: 0.875rem;
+      margin-bottom: 0.6rem;
+    }
+
+    .command-card .cmd-name  { color: var(--accent); font-weight: 600; }
+    .command-card .cmd-args  { color: var(--text-muted); }
+    .command-card .cmd-flags { color: var(--purple); }
+    .command-card p          { font-size: 0.82rem; color: var(--text-muted); line-height: 1.5; }
+
+    /* ── Adapters ── */
+    #adapters { background: var(--bg-surface); border-top: 1px solid var(--border); border-bottom: 1px solid var(--border); }
+
+    .adapters-wrap {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 3rem;
+    }
+
+    @media (max-width: 720px) { .adapters-wrap { grid-template-columns: 1fr; } }
+
+    .adapter-group h3 { font-size: 0.875rem; font-weight: 600; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 1rem; }
+
+    table { width: 100%; border-collapse: collapse; }
+    th {
+      text-align: left;
+      font-size: 0.78rem;
+      font-weight: 600;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      padding: 0.5rem 0.75rem;
+      border-bottom: 1px solid var(--border);
+    }
+    td {
+      padding: 0.65rem 0.75rem;
+      font-size: 0.875rem;
+      border-bottom: 1px solid rgba(48,54,61,0.5);
+      vertical-align: middle;
+    }
+    tr:last-child td { border-bottom: none; }
+
+    .tag {
+      display: inline-block;
+      font-family: var(--font-mono);
+      font-size: 0.75rem;
+      background: rgba(45,212,191,0.1);
+      color: var(--accent);
+      border: 1px solid rgba(45,212,191,0.2);
+      border-radius: 4px;
+      padding: 0.15rem 0.5rem;
+    }
+
+    .tag.storage {
+      background: rgba(188,140,255,0.1);
+      color: var(--purple);
+      border-color: rgba(188,140,255,0.2);
+    }
+
+    /* ── Extend ── */
+    .extend-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 3rem;
+      align-items: center;
+    }
+
+    @media (max-width: 720px) { .extend-grid { grid-template-columns: 1fr; } }
+
+    .extend-text h2 { font-size: clamp(1.3rem, 2.5vw, 1.75rem); font-weight: 700; margin-bottom: 1rem; letter-spacing: -0.02em; }
+    .extend-text p  { font-size: 0.9rem; color: var(--text-muted); line-height: 1.7; margin-bottom: 1rem; }
+
+    .r-keyword { color: #ff7b72; }
+    .r-type    { color: #ffa657; }
+    .r-trait   { color: #79c0ff; }
+    .r-fn      { color: #d2a8ff; }
+    .r-str     { color: #a5d6ff; }
+    .r-comment { color: #484f58; }
+    .r-self    { color: var(--orange); }
+    .r-punct   { color: var(--text-muted); }
+
+    /* ── Install ── */
+    #install { text-align: center; }
+
+    .install-card {
+      display: inline-block;
+      background: var(--bg-surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 2.5rem 3rem;
+      margin-top: 2rem;
+      text-align: left;
+      max-width: 560px;
+      width: 100%;
+    }
+
+    .install-option { margin-bottom: 2rem; }
+    .install-option:last-child { margin-bottom: 0; }
+    .install-option h4 { font-size: 0.8rem; font-weight: 600; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 0.75rem; }
+
+    .install-cmd {
+      background: var(--bg-code);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 0.75rem 1rem;
+      font-family: var(--font-mono);
+      font-size: 0.875rem;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 1rem;
+    }
+
+    .install-cmd .prompt { color: var(--accent); }
+    .install-cmd .command { color: var(--text); }
+    .install-cmd button {
+      background: none;
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      color: var(--text-muted);
+      cursor: pointer;
+      padding: 0.2rem 0.5rem;
+      font-size: 0.75rem;
+      transition: border-color 0.15s, color 0.15s;
+      white-space: nowrap;
+    }
+    .install-cmd button:hover { border-color: var(--accent); color: var(--accent); }
+
+    /* ── Footer ── */
+    footer {
+      border-top: 1px solid var(--border);
+      padding: 2rem;
+      text-align: center;
+      color: var(--text-muted);
+      font-size: 0.85rem;
+    }
+
+    footer .footer-inner { display: flex; align-items: center; justify-content: center; gap: 1.5rem; flex-wrap: wrap; }
+    footer .sep { color: var(--border); }
+    footer a { color: var(--text-muted); }
+    footer a:hover { color: var(--accent); text-decoration: none; }
+  </style>
+</head>
+<body>
+
+<!-- ── Nav ─────────────────────────────────── -->
+<nav>
+  <div class="nav-logo">
+    <span class="dot"></span>
+    orbit
+  </div>
+  <div class="nav-links">
+    <a href="#how-it-works">Docs</a>
+    <a href="#adapters">Adapters</a>
+    <a href="https://github.com/grafana/orbit" class="btn-outline">GitHub</a>
+  </div>
+</nav>
+
+<!-- ── Hero ─────────────────────────────────── -->
+<section id="hero">
+  <div class="container">
+    <div class="hero-badge">v0.1.0 — hackathon preview</div>
+    <h1 class="hero-title">or<span>b</span>it</h1>
+    <p class="hero-tagline">Secret rotation without the panic. Provision, rotate, and revoke credentials across your entire infrastructure from one command.</p>
+    <div class="hero-actions">
+      <a href="#install" class="btn-primary">Get Started</a>
+      <a href="https://github.com/grafana/orbit" class="btn-secondary">View on GitHub →</a>
+    </div>
+    <a class="install-box" href="#install" onclick="return false;">
+      <span class="prompt">$</span>
+      <span class="cmd">cargo install orbit</span>
+      <span class="copy-icon">⎘ copy</span>
+    </a>
+  </div>
+</section>
+
+<!-- ── Problem ─────────────────────────────── -->
+<section id="problem">
+  <div class="container">
+    <p class="section-label">The problem</p>
+    <h2 class="section-title">Incidents don't wait for runbooks.</h2>
+    <p style="color: var(--text-muted); max-width: 600px; margin-bottom: 2.5rem;">
+      When a secret is compromised, every minute it stays active is a minute of exposure. Manual rotation across multiple services, environments, and backends is slow, error-prone, and stressful under pressure.
+    </p>
+    <div class="problem-grid">
+      <div class="problem-card">
+        <div class="icon">⏱</div>
+        <h3>Slow under pressure</h3>
+        <p>Cross-referencing runbooks while the clock ticks introduces mistakes. Missed services mean incomplete rotation.</p>
+      </div>
+      <div class="problem-card">
+        <div class="icon">🗺</div>
+        <h3>Scattered knowledge</h3>
+        <p>Where does each secret live? Who created it? How do you revoke it? That knowledge shouldn't live in someone's head or a stale wiki.</p>
+      </div>
+      <div class="problem-card">
+        <div class="icon">🔁</div>
+        <h3>No safe iteration</h3>
+        <p>Without a dry-run, you can't verify what will change before changing it. One mistake during a rotation can make things worse.</p>
+      </div>
+      <div class="problem-card">
+        <div class="icon">📋</div>
+        <h3>Audit gaps</h3>
+        <p>Manual processes leave no record of what was rotated, when, and by whom — exactly the information an incident review needs.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ── How it works ──────────────────────────── -->
+<section id="how-it-works">
+  <div class="container">
+    <p class="section-label">How it works</p>
+    <h2 class="section-title">Three steps. One command.</h2>
+    <p class="section-sub">orbit uses declarative config files that live alongside your service definitions. Define once, rotate whenever.</p>
+    <div class="steps">
+      <div class="step">
+        <div class="step-number">1</div>
+        <h3>Define</h3>
+        <p>Drop an <code>orbit.json</code> next to your service config. Declare the secret type, its source URL, and where to store it. Auth comes from your ambient environment — no credentials in the file.</p>
+      </div>
+      <div class="step">
+        <div class="step-number">2</div>
+        <h3>Verify</h3>
+        <p>Run <code>orbit rotate --dry-run</code> to see exactly what will change before anything touches production. Inspect scope across a single file or an entire directory tree.</p>
+      </div>
+      <div class="step">
+        <div class="step-number">3</div>
+        <h3>Rotate</h3>
+        <p>Drop <code>--dry-run</code> to execute. orbit creates the new secret, stores it in your backend, then revokes the old one. Clean, atomic, logged.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ── Demo terminal ─────────────────────────── -->
+<section id="demo">
+  <div class="container-wide">
+    <div style="margin-bottom: 2.5rem;">
+      <p class="section-label">In action</p>
+      <h2 class="section-title">From incident to rotated in seconds.</h2>
+    </div>
+    <div class="terminal-wrap">
+
+      <div class="terminal">
+        <div class="terminal-bar">
+          <span class="terminal-dot r"></span>
+          <span class="terminal-dot y"></span>
+          <span class="terminal-dot g"></span>
+          <span class="terminal-title">incident response — rotate all federal dev secrets</span>
+        </div>
+        <div class="terminal-body">
+<pre><span class="t-comment"># Check what will change first</span>
+<span class="t-prompt">$</span> <span class="t-cmd">orbit rotate</span> <span class="t-path">./environments/federal-dev/</span> <span class="t-flag">--dry-run</span>
+
+<span class="t-muted">[dry-run] orbit rotate ./environments/federal-dev/</span>
+<span class="t-blank"></span>
+  <span class="t-path">federal-dev/orbit.json</span>  <span class="t-muted">loki-writer-token</span>   <span class="t-warn">→ ROTATE</span>
+  <span class="t-path">federal-dev/orbit.json</span>  <span class="t-muted">mimir-writer-token</span>  <span class="t-warn">→ ROTATE</span>
+  <span class="t-path">federal-dev/orbit.json</span>  <span class="t-muted">oncall-gcom-token</span>   <span class="t-warn">→ ROTATE</span>
+<span class="t-blank"></span>
+<span class="t-muted">3 secrets would be rotated.</span>
+<span class="t-blank"></span>
+<span class="t-prompt">$</span> <span class="t-cmd">orbit rotate</span> <span class="t-path">./environments/federal-dev/</span>
+
+<span class="t-ok">✓</span> <span class="t-muted">loki-writer-token</span>   <span class="t-ok">rotated</span>  <span class="t-dim">vault:loki/federal-dev/amcreds/token</span>
+<span class="t-ok">✓</span> <span class="t-muted">mimir-writer-token</span>  <span class="t-ok">rotated</span>  <span class="t-dim">vault:mimir/federal-dev/amcreds/token</span>
+<span class="t-ok">✓</span> <span class="t-muted">oncall-gcom-token</span>   <span class="t-ok">rotated</span>  <span class="t-dim">vault:irm/federal-dev/gcom/token</span>
+<span class="t-blank"></span>
+<span class="t-ok">3 secrets rotated in 4.2s</span></pre>
+        </div>
+      </div>
+
+      <div class="terminal">
+        <div class="terminal-bar">
+          <span class="terminal-dot r"></span>
+          <span class="terminal-dot y"></span>
+          <span class="terminal-dot g"></span>
+          <span class="terminal-title">bootstrapping a new environment</span>
+        </div>
+        <div class="terminal-body">
+<pre><span class="t-comment"># New environment — provision secrets that don't exist yet</span>
+<span class="t-prompt">$</span> <span class="t-cmd">orbit provision</span> <span class="t-path">./environments/federal-ops/</span> <span class="t-flag">--dry-run</span>
+
+<span class="t-muted">[dry-run] orbit provision ./environments/federal-ops/</span>
+<span class="t-blank"></span>
+  <span class="t-muted">loki-writer-token</span>   <span class="t-warn">→ CREATE + STORE</span>  <span class="t-dim">(not found)</span>
+  <span class="t-muted">mimir-writer-token</span>  <span class="t-ok">→ SKIP</span>           <span class="t-dim">(already provisioned)</span>
+  <span class="t-muted">oncall-gcom-token</span>   <span class="t-warn">→ STORE ONLY</span>    <span class="t-dim">(exists, not in vault)</span>
+<span class="t-blank"></span>
+<span class="t-prompt">$</span> <span class="t-cmd">orbit provision</span> <span class="t-path">./environments/federal-ops/</span>
+
+<span class="t-ok">✓</span> <span class="t-muted">loki-writer-token</span>   <span class="t-ok">created + stored</span>
+<span class="t-muted">–</span> <span class="t-muted">mimir-writer-token</span>  <span class="t-muted">already provisioned, skipped</span>
+<span class="t-ok">✓</span> <span class="t-muted">oncall-gcom-token</span>   <span class="t-ok">stored</span>
+<span class="t-blank"></span>
+<span class="t-comment"># List everything orbit manages in this tree</span>
+<span class="t-prompt">$</span> <span class="t-cmd">orbit list</span> <span class="t-path">./environments/</span>
+
+  <span class="t-muted">federal-dev/orbit.json</span>  loki-writer-token   grafana-access-policy-token  <span class="t-dim">vault</span>
+  <span class="t-muted">federal-dev/orbit.json</span>  mimir-writer-token  grafana-access-policy-token  <span class="t-dim">vault</span>
+  <span class="t-muted">federal-ops/orbit.json</span>  loki-writer-token   grafana-access-policy-token  <span class="t-dim">vault</span></pre>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</section>
+
+<!-- ── Config ─────────────────────────────────── -->
+<section id="config">
+  <div class="container">
+    <div class="config-grid">
+      <div class="code-block">
+        <div class="code-block-header">
+          <span class="file-icon">◈</span>
+          environments/federal-dev/orbit.json
+        </div>
+        <pre><span class="j-punct">{</span>
+  <span class="j-key">"secrets"</span><span class="j-punct">: [</span>
+    <span class="j-punct">{</span>
+      <span class="j-key">"name"</span><span class="j-punct">:</span>  <span class="j-str">"loki-writer-token"</span><span class="j-punct">,</span>
+      <span class="j-key">"type"</span><span class="j-punct">:</span>  <span class="j-str">"grafana-access-policy-token"</span><span class="j-punct">,</span>
+      <span class="j-key">"url"</span><span class="j-punct">:</span>   <span class="j-str">"https://grafana.federal-dev.example.com"</span><span class="j-punct">,</span>
+      <span class="j-key">"options"</span><span class="j-punct">: {</span>
+        <span class="j-key">"policy_name"</span><span class="j-punct">:</span>  <span class="j-str">"loki-writer"</span><span class="j-punct">,</span>
+        <span class="j-key">"expiry_days"</span><span class="j-punct">:</span>  <span class="j-num">90</span>
+      <span class="j-punct">},</span>
+      <span class="j-key">"storage"</span><span class="j-punct">: {</span>
+        <span class="j-key">"type"</span><span class="j-punct">:</span>  <span class="j-str">"vault"</span><span class="j-punct">,</span>
+        <span class="j-key">"path"</span><span class="j-punct">:</span>  <span class="j-str">"loki/federal-dev/amcreds/token"</span>
+      <span class="j-punct">}</span>
+    <span class="j-punct">},</span>
+    <span class="j-punct">{</span>
+      <span class="j-key">"name"</span><span class="j-punct">:</span>  <span class="j-str">"oncall-gcom-token"</span><span class="j-punct">,</span>
+      <span class="j-key">"type"</span><span class="j-punct">:</span>  <span class="j-str">"gcom-api-token"</span><span class="j-punct">,</span>
+      <span class="j-key">"url"</span><span class="j-punct">:</span>   <span class="j-str">"https://grafana.com/api"</span><span class="j-punct">,</span>
+      <span class="j-key">"options"</span><span class="j-punct">: {</span>
+        <span class="j-key">"org_slug"</span><span class="j-punct">:</span>  <span class="j-str">"federal-dev"</span>
+      <span class="j-punct">},</span>
+      <span class="j-key">"storage"</span><span class="j-punct">: {</span>
+        <span class="j-key">"type"</span><span class="j-punct">:</span>  <span class="j-str">"vault"</span><span class="j-punct">,</span>
+        <span class="j-key">"path"</span><span class="j-punct">:</span>  <span class="j-str">"irm/federal-dev/gcom/token"</span>
+      <span class="j-punct">}</span>
+    <span class="j-punct">}</span>
+  <span class="j-punct">]</span>
+<span class="j-punct">}</span></pre>
+      </div>
+
+      <div class="config-notes">
+        <h3>One file. All the context.</h3>
+        <p>An <code style="font-family: var(--font-mono); font-size: 0.82rem; background: var(--bg-code); border: 1px solid var(--border); border-radius: 4px; padding: 0.1rem 0.4rem;">orbit.json</code> file lives alongside the service it belongs to in your repo. It describes <em>what</em> to rotate and <em>where</em> to store it — never <em>how</em> to authenticate.</p>
+        <ul>
+          <li><strong>Auth is ambient.</strong> orbit resolves credentials from your environment — setup-context, <code style="font-family: var(--font-mono); font-size: 0.8rem;">VAULT_TOKEN</code>, gcloud, AWS — and only prompts when it can't find what it needs.</li>
+          <li><strong>Multiple secrets per file.</strong> Group related secrets (e.g. all credentials for a Tanka environment) and rotate them as a batch, or target a single one with <code style="font-family: var(--font-mono); font-size: 0.8rem;">--secret &lt;name&gt;</code>.</li>
+          <li><strong>No credentials in git.</strong> The config describes the secret's location and type — values never touch the file.</li>
+          <li><strong>Generate with a wizard.</strong> Run <code style="font-family: var(--font-mono); font-size: 0.8rem;">orbit generate</code> to create a config interactively without touching JSON by hand.</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ── Commands ───────────────────────────────── -->
+<section id="commands" style="background: var(--bg-surface); border-top: 1px solid var(--border); border-bottom: 1px solid var(--border);">
+  <div class="container">
+    <p class="section-label">Commands</p>
+    <h2 class="section-title">Everything you need for the full lifecycle.</h2>
+    <div class="commands-grid">
+      <div class="command-card">
+        <div class="cmd-line"><span class="cmd-name">orbit provision</span> <span class="cmd-args">[file|path]</span> <span class="cmd-flags">[--dry-run]</span></div>
+        <p>Idempotent bootstrap. Creates and stores secrets that don't exist yet. Skips anything already provisioned. Safe to run repeatedly.</p>
+      </div>
+      <div class="command-card">
+        <div class="cmd-line"><span class="cmd-name">orbit rotate</span> <span class="cmd-args">[file|path]</span> <span class="cmd-flags">[--dry-run]</span></div>
+        <p>Creates a new secret, stores it in your backend, then revokes the old one. Always produces a net-new credential.</p>
+      </div>
+      <div class="command-card">
+        <div class="cmd-line"><span class="cmd-name">orbit revoke</span> <span class="cmd-args">[file|path]</span> <span class="cmd-flags">[--dry-run]</span></div>
+        <p>Immediately invalidates the current secret at the source and removes it from storage. No replacement — use during containment.</p>
+      </div>
+      <div class="command-card">
+        <div class="cmd-line"><span class="cmd-name">orbit generate</span></div>
+        <p>Interactive wizard that asks questions about your secret type and storage backend, then writes a valid <code style="font-family: var(--font-mono); font-size: 0.8rem;">orbit.json</code> for you.</p>
+      </div>
+      <div class="command-card">
+        <div class="cmd-line"><span class="cmd-name">orbit list</span> <span class="cmd-args">[file|path]</span></div>
+        <p>Read-only summary of all secrets orbit knows about in the given path. No API calls. Great for auditing coverage.</p>
+      </div>
+      <div class="command-card">
+        <div class="cmd-line"><span class="cmd-name">orbit validate</span> <span class="cmd-args">[file|path]</span></div>
+        <p>Schema check only. Confirms every <code style="font-family: var(--font-mono); font-size: 0.8rem;">orbit.json</code> is well-formed and uses a registered adapter type.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ── Adapters ───────────────────────────────── -->
+<section id="adapters">
+  <div class="container">
+    <p class="section-label">Adapters</p>
+    <h2 class="section-title">Works with the secrets you already have.</h2>
+    <p class="section-sub">orbit ships with adapters for the most common secret types, with Vault and 1Password as storage backends.</p>
+    <div class="adapters-wrap">
+      <div class="adapter-group">
+        <h3>Secret types</h3>
+        <table>
+          <thead>
+            <tr><th>Type</th><th>Auth</th></tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><span class="tag">grafana-access-policy-token</span></td>
+              <td style="color: var(--text-muted); font-size: 0.82rem;">env: GRAFANA_API_TOKEN</td>
+            </tr>
+            <tr>
+              <td><span class="tag">gcom-api-token</span></td>
+              <td style="color: var(--text-muted); font-size: 0.82rem;">env: GRAFANA_COM_TOKEN</td>
+            </tr>
+            <tr>
+              <td><span class="tag">aws-iam-access-key</span></td>
+              <td style="color: var(--text-muted); font-size: 0.82rem;">ambient AWS credentials</td>
+            </tr>
+            <tr>
+              <td><span class="tag">gcp-service-account-key</span></td>
+              <td style="color: var(--text-muted); font-size: 0.82rem;">ambient gcloud auth</td>
+            </tr>
+            <tr>
+              <td><span class="tag">slack-token</span></td>
+              <td style="color: var(--text-muted); font-size: 0.82rem;">prompted / 1Password</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      <div class="adapter-group">
+        <h3>Storage backends</h3>
+        <table>
+          <thead>
+            <tr><th>Backend</th><th>Auth</th></tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><span class="tag storage">vault</span></td>
+              <td style="color: var(--text-muted); font-size: 0.82rem;">VAULT_TOKEN or ambient vault login</td>
+            </tr>
+            <tr>
+              <td><span class="tag storage">1password</span></td>
+              <td style="color: var(--text-muted); font-size: 0.82rem;">op CLI / OP_SERVICE_ACCOUNT_TOKEN</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ── Extend ─────────────────────────────────── -->
+<section id="extend" style="border-top: 1px solid var(--border);">
+  <div class="container">
+    <div class="extend-grid">
+      <div class="extend-text">
+        <p class="section-label">Extensibility</p>
+        <h2>Adding a new secret type takes one file.</h2>
+        <p>orbit's adapter model is built on Rust traits. Implement <code style="font-family: var(--font-mono); font-size: 0.82rem; color: var(--accent);">RotateSecret</code>, register it, and your new type is available to every orbit command. The traits are intentionally small.</p>
+        <p>Adapters that only support creation (write-once tokens with no revocation API) implement the lighter <code style="font-family: var(--font-mono); font-size: 0.82rem; color: var(--accent);">ProvisionSecret</code> trait and work with <code style="font-family: var(--font-mono); font-size: 0.82rem;">orbit provision</code>.</p>
+      </div>
+      <div class="code-block">
+        <div class="code-block-header">
+          <span class="file-icon" style="color: #f0883e;">◈</span>
+          src/adapters/my_token.rs
+        </div>
+        <pre style="font-family: var(--font-mono); font-size: 0.8rem; line-height: 1.7; padding: 1.25rem; overflow-x: auto;"><span class="r-keyword">impl</span> <span class="r-trait">RotateSecret</span> <span class="r-keyword">for</span> <span class="r-type">MyTokenAdapter</span> <span class="r-punct">{</span>
+  <span class="r-keyword">fn</span> <span class="r-fn">type_name</span><span class="r-punct">()</span> <span class="r-punct">-></span> <span class="r-punct">&</span><span class="r-keyword">'static</span> <span class="r-type">str</span> <span class="r-punct">{</span>
+    <span class="r-str">"my-token-type"</span>
+  <span class="r-punct">}</span>
+
+  <span class="r-keyword">fn</span> <span class="r-fn">create</span><span class="r-punct">(</span>
+    <span class="r-punct">&</span><span class="r-self">self</span><span class="r-punct">,</span>
+    config<span class="r-punct">:</span> <span class="r-punct">&</span><span class="r-type">AdapterConfig</span><span class="r-punct">,</span>
+    auth<span class="r-punct">:</span> <span class="r-punct">&</span><span class="r-type">AuthContext</span><span class="r-punct">,</span>
+  <span class="r-punct">)</span> <span class="r-punct">-></span> <span class="r-type">Result</span><span class="r-punct">&lt;</span><span class="r-type">Secret</span><span class="r-punct">&gt; {</span>
+    <span class="r-comment">// call your API here</span>
+    <span class="r-keyword">let</span> token <span class="r-punct">=</span> api<span class="r-punct">::</span><span class="r-fn">create_token</span><span class="r-punct">(</span><span class="r-punct">&</span>config<span class="r-punct">.</span>url<span class="r-punct">,</span> <span class="r-punct">&</span>auth<span class="r-punct">.</span>token<span class="r-punct">);</span>
+    <span class="r-type">Ok</span><span class="r-punct">(</span><span class="r-type">Secret</span><span class="r-punct">::</span><span class="r-fn">new</span><span class="r-punct">(</span>token<span class="r-punct">))</span>
+  <span class="r-punct">}</span>
+
+  <span class="r-keyword">fn</span> <span class="r-fn">revoke</span><span class="r-punct">(</span><span class="r-punct">&</span><span class="r-self">self</span><span class="r-punct">,</span> secret<span class="r-punct">:</span> <span class="r-punct">&</span><span class="r-type">Secret</span><span class="r-punct">,</span> <span class="r-punct">...</span><span class="r-punct">)</span> <span class="r-punct">-></span> <span class="r-type">Result</span><span class="r-punct">&lt;()&gt; {</span>
+    api<span class="r-punct">::</span><span class="r-fn">delete_token</span><span class="r-punct">(</span><span class="r-punct">&</span>secret<span class="r-punct">.</span>value<span class="r-punct">)</span>
+  <span class="r-punct">}</span>
+<span class="r-punct">}</span></pre>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ── Install ───────────────────────────────── -->
+<section id="install">
+  <div class="container">
+    <p class="section-label">Get started</p>
+    <h2 class="section-title">Install orbit</h2>
+    <div class="install-card">
+      <div class="install-option">
+        <h4>From source (cargo)</h4>
+        <div class="install-cmd">
+          <span><span class="prompt">$</span> <span class="command">cargo install orbit</span></span>
+          <button onclick="navigator.clipboard.writeText('cargo install orbit')">copy</button>
+        </div>
+      </div>
+      <div class="install-option">
+        <h4>Binary release</h4>
+        <div class="install-cmd">
+          <span><span class="prompt">$</span> <span class="command">curl -fsSL https://github.com/grafana/orbit/releases/latest/download/install.sh | sh</span></span>
+          <button onclick="navigator.clipboard.writeText('curl -fsSL https://github.com/grafana/orbit/releases/latest/download/install.sh | sh')">copy</button>
+        </div>
+      </div>
+      <div class="install-option" style="margin-bottom: 0;">
+        <h4>Verify</h4>
+        <div class="install-cmd">
+          <span><span class="prompt">$</span> <span class="command">orbit --version</span></span>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ── Footer ───────────────────────────────── -->
+<footer>
+  <div class="footer-inner">
+    <span style="font-family: var(--font-mono); font-weight: 600;">⊙ orbit</span>
+    <span class="sep">·</span>
+    <a href="https://github.com/grafana/orbit/blob/main/LICENSE">Apache 2.0</a>
+    <span class="sep">·</span>
+    <a href="https://github.com/grafana/orbit">github.com/grafana/orbit</a>
+    <span class="sep">·</span>
+    <span>Built at Grafana Labs</span>
+  </div>
+</footer>
+
+</body>
+</html>
