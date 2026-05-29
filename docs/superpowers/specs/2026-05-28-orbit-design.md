@@ -77,19 +77,45 @@ A single `orbit.json` can define one or many secrets. This allows related secret
 
 **Auth resolution order** (per secret):
 
-1. If an `auth` block is present — fetch the credential from the specified backend before calling the adapter. Uses ambient backend auth (e.g. `VAULT_TOKEN`) to perform the lookup.
+1. If an `auth` block is present — fetch credentials from the specified backend before calling the adapter. Uses ambient backend auth (e.g. `VAULT_TOKEN`) to perform the lookup.
 2. Otherwise — resolve from environment variables (`GRAFANA_API_TOKEN`, `GRAFANA_COM_TOKEN`, etc.)
 3. Otherwise — prompt interactively
 
-**`auth` block fields:**
+**`auth` block — shorthand (single credential):**
+
+```json
+"auth": {
+  "type": "vault",
+  "path": "traces/dev/admin/token",
+  "field": "token"
+}
+```
+
+Equivalent to a single-entry `credentials` list with `key` defaulting to the `field` name.
+
+**`auth` block — full form (multiple credentials):**
+
+```json
+"auth": {
+  "type": "vault",
+  "credentials": [
+    { "key": "client_id",     "path": "app/oauth/creds", "field": "client_id" },
+    { "key": "client_secret", "path": "app/oauth/creds", "field": "client_secret" }
+  ]
+}
+```
+
+Each entry in `credentials` fetches one value and names it. All resolved values are collected into an `authMap` (`HashMap<String, String>`) and passed to the adapter. The adapter extracts whichever keys it needs — orbit does not prescribe how the credentials are used.
+
+**`credentials` entry fields:**
 
 | Field | Required | Description |
 |-------|----------|-------------|
-| `type` | yes | Storage backend to fetch from (`vault`, `1password`) |
-| `path` | yes | Path to the credential in that backend |
-| `field` | no | Specific key within the secret (e.g. `token`, `password`). If omitted, the entire secret value is used. |
+| `key` | yes | Name used to reference this credential in the adapter (`authMap` key) |
+| `path` | yes | Path to the secret in the backend |
+| `field` | no | Specific field within that secret. If omitted, the entire secret value is used. |
 
-The adapter declares (via `options_schema()`) what credential it expects. The fetched value is injected into `AuthContext` and the adapter uses it however the target API requires (bearer token, API key header, etc.). The config does not need to specify how the credential is presented — that is the adapter's responsibility.
+The adapter declares (via `options_schema()`) what keys it expects from `authMap`. The config does not need to specify how credentials are presented to the target API — that is the adapter's responsibility.
 
 ---
 
@@ -138,6 +164,16 @@ trait StoreSecret {
     fn store(&self, secret: &Secret, config: &StorageConfig, auth: &AuthContext) -> Result<()>;
     fn fetch(&self, config: &StorageConfig, auth: &AuthContext) -> Result<Option<Secret>>;
     fn delete(&self, config: &StorageConfig, auth: &AuthContext) -> Result<()>;
+}
+```
+
+### `AuthContext` — resolved credentials map
+
+```rust
+struct AuthContext {
+    /// Named credentials resolved from the auth block (or env/prompt fallback).
+    /// Adapters extract the keys they need: auth.get("client_id"), auth.get("token"), etc.
+    credentials: HashMap<String, String>,
 }
 ```
 
