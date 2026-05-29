@@ -54,23 +54,42 @@ A single `orbit.json` can define one or many secrets. This allows related secret
       }
     },
     {
-      "name": "mimir-writer-token",
+      "name": "traces-access-token",
       "type": "grafana-access-policy-token",
-      "url": "https://grafana.example.com/api/v1/",
+      "url": "https://traces.example.com/admin/api",
+      "auth": {
+        "type": "vault",
+        "path": "traces/dev-us-gov-east-1/admin/token",
+        "field": "token"
+      },
       "options": {
-        "policy_name": "mimir-writer",
+        "policy_name": "traces-writer",
         "expiry_days": 90
       },
       "storage": {
         "type": "vault",
-        "path": "mimir/dev-us-gov-east-1/amcreds/token"
+        "path": "traces/dev-us-gov-east-1/amcreds/token"
       }
     }
   ]
 }
 ```
 
-**Auth is absent from config by design.** orbit resolves credentials from the environment (ambient gcloud/AWS/Vault from `setup-context`, `VAULT_TOKEN`, `OP_SERVICE_ACCOUNT_TOKEN`, etc.) and prompts interactively only when it cannot find what it needs.
+**Auth resolution order** (per secret):
+
+1. If an `auth` block is present — fetch the credential from the specified backend before calling the adapter. Uses ambient backend auth (e.g. `VAULT_TOKEN`) to perform the lookup.
+2. Otherwise — resolve from environment variables (`GRAFANA_API_TOKEN`, `GRAFANA_COM_TOKEN`, etc.)
+3. Otherwise — prompt interactively
+
+**`auth` block fields:**
+
+| Field | Required | Description |
+|-------|----------|-------------|
+| `type` | yes | Storage backend to fetch from (`vault`, `1password`) |
+| `path` | yes | Path to the credential in that backend |
+| `field` | no | Specific key within the secret (e.g. `token`, `password`). If omitted, the entire secret value is used. |
+
+The adapter declares (via `options_schema()`) what credential it expects. The fetched value is injected into `AuthContext` and the adapter uses it however the target API requires (bearer token, API key header, etc.). The config does not need to specify how the credential is presented — that is the adapter's responsibility.
 
 ---
 
@@ -151,7 +170,7 @@ config loaded ──────┤
 ### `orbit rotate` — always creates new and revokes old
 
 1. Load + validate config
-2. Resolve auth from environment; prompt if missing
+2. Resolve auth: fetch from backend (`auth` block) → env var → prompt
 3. `storage.fetch()` → retrieve current secret value (needed for revoke in step 6)
 4. `adapter.create()` → create new secret
 5. `storage.store()` → write new secret to backend
@@ -174,9 +193,12 @@ config loaded → storage.fetch()
 
 1. Select secret type (from registered adapters via `list-types`)
 2. Prompt for each field in `adapter.options_schema()`
-3. Select storage backend
-4. Prompt for storage path/key
-5. Write `orbit.json`
+3. Ask: does this API require a credential stored in a backend? If yes:
+   - Select backend type (`vault`, `1password`)
+   - Prompt for path and field name
+4. Select storage backend
+5. Prompt for storage path/key
+6. Write `orbit.json`
 
 ### `orbit list` — read-only summary
 
@@ -228,7 +250,7 @@ orbit/
 │   │   ├── list.rs
 │   │   └── validate.rs
 │   └── auth/
-│       └── mod.rs                    # env resolution + interactive prompt fallback
+│       └── mod.rs                    # resolution chain: auth block (backend fetch) → env var → prompt
 ├── examples/
 │   ├── grafana-access-policy-token.orbit.json
 │   ├── gcom-api-token.orbit.json
